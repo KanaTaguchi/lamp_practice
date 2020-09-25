@@ -12,7 +12,13 @@ if(is_logined() === true){
 $name = get_post('name');
 $password = get_post('password');
 $password_confirmation = get_post('password_confirmation');
+$token = get_post('token');
 
+$result_token = is_valid_csrf_token($token);
+if( $result_token === false){
+  set_error('不正なページ遷移です。');
+  redirect_to(SIGNUP_URL);
+}
 $db = get_db_connect();
 
 try{
