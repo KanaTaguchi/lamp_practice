@@ -1,6 +1,8 @@
 <?php 
 require_once MODEL_PATH . 'functions.php';
 require_once MODEL_PATH . 'db.php';
+require_once MODEL_PATH . 'history.php';
+require_once MODEL_PATH . 'detail.php';
 
 function get_user_carts($db, $user_id){
   $sql = "
@@ -105,7 +107,17 @@ function purchase_carts($db, $carts){
   if(validate_cart_purchase($carts) === false){
     return false;
   }
+
+  $db->beginTransaction();
+  if(insert_history($db, $carts[0]['user_id']) === false){
+    set_error('商品の購入に失敗しました');
+  }
+  $order_id = $db->lastInsertId('order_id');
+
   foreach($carts as $cart){
+    if(insert_detail($db, $order_id, $cart['price'], $cart['item_id'], $cart['amount']) === false){
+      set_error('商品の購入に失敗しました');
+    }
     if(update_item_stock(
         $db, 
         $cart['item_id'], 
@@ -115,7 +127,17 @@ function purchase_carts($db, $carts){
     }
   }
   
-  delete_user_carts($db, $carts[0]['user_id']);
+  if(delete_user_carts($db, $carts[0]['user_id']) === false){
+    set_error('商品の購入に失敗しました');
+  }
+
+  if(has_error() === true){
+    $db->rollback();
+    return false;
+  }else{
+    $db->commit();
+    return true;
+  }
 }
 
 function delete_user_carts($db, $user_id){
